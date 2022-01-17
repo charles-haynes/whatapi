@@ -48,7 +48,7 @@ Example
 
 	downloadURL, err := wcd.CreateDownloadURL(torrentSearch.Results[0].Torrents[0].TorrentID)
 	if err != nil {
-		log.Fatal(downloadURL)
+		log.Fatal(err)
 	}
 	log.Println(downloadURL)
 ```

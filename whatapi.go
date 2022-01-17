@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"golang.org/x/net/publicsuffix"
+	retrywait "k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 )
 
 type PSList struct{}
@@ -86,7 +88,7 @@ type Group interface {
 	Artist() string
 	Year() int
 	ReleaseType() int
-	Tags() map[int]string
+	Tags() []string
 	String() string
 }
 
@@ -343,9 +345,35 @@ func (w *ClientStruct) GetJSON(requestURL string, responseObj interface{}) (err 
 		if err != nil {
 			return err
 		}
-		if body, err = w.doRequest(req); err != nil {
+
+		err = retry.OnError(retrywait.Backoff{
+			Duration: 15 * time.Second,
+			Steps:    4,
+			Factor:   3,
+			Jitter:   0.1,
+		}, func(err error) bool {
+			es := err.Error()
+			return es == "Request failed: Status Code 503 Service Unavailable" || // err from html
+				es == "Request failed: Rate limit exceeded" // err from json
+		}, func() (err error) {
+			if body, err = w.doRequest(req); err != nil {
+				return err // err from http
+			}
+
+			var st GenericResponse
+			if err := json.Unmarshal(body, &st); err != nil {
+				return err
+			}
+			if err := checkResponseStatus(st.Status, st.Error); err != nil {
+				return err // err from json
+			}
+
+			return err
+		})
+		if err != nil {
 			return err
 		}
+
 		if err = w.updateCache(requestURL, body); err != nil {
 			return err
 		}
@@ -355,14 +383,6 @@ func (w *ClientStruct) GetJSON(requestURL string, responseObj interface{}) (err 
 		break
 	}
 
-	var st GenericResponse
-	if err := json.Unmarshal(body, &st); err != nil {
-		return err
-	}
-
-	if err := checkResponseStatus(st.Status, st.Error); err != nil {
-		return err
-	}
 	switch ro := responseObj.(type) {
 	case *ArtistResponse: // hack around orpheus bug in get artist
 		err := json.Unmarshal(body, ro)

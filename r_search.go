@@ -125,7 +125,7 @@ type TorrentSearchResultStruct struct {
 	GroupID       int                   `json:"groupId"`
 	GroupName     string                `json:"groupName"`
 	ArtistF       string                `json:"artist"`
-	TagsF         map[int]string        `json:"tags"`
+	TagsF         []string              `json:"tags"`
 	Bookmarked    bool                  `json:"bookmarked"`
 	VanityHouse   bool                  `json:"vanityHouse"`
 	GroupYear     int                   `json:"groupYear"`
@@ -157,7 +157,7 @@ func (ts TorrentSearchResultStruct) ReleaseType() int {
 	return ts.ReleaseTypeF
 }
 
-func (ts TorrentSearchResultStruct) Tags() map[int]string {
+func (ts TorrentSearchResultStruct) Tags() []string {
 	return ts.TagsF
 }
 
